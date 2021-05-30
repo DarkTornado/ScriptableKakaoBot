@@ -37,7 +37,7 @@ public class KakaotalkListener extends NotificationListenerService {
                             act.title.toString().toLowerCase().contains("Reply") ||
                             act.title.toString().toLowerCase().contains("답장")) {
                         execContext = getApplicationContext();
-                        callResponder(sbn.getNotification().extras.getString("android.title"), sbn.getNotification().extras.get("android.text"), act);
+                        callResponder(sbn.getNotification().extras, act);
                     }
         }
     }
@@ -65,7 +65,7 @@ public class KakaotalkListener extends NotificationListenerService {
         }
     }
 
-    private void callResponder(String room, Object msg, Notification.Action session) {
+    private void callResponder(Bundle data, Notification.Action session) {
         if (responder == null || execScope == null)
             initializeScript();
         Context parseContext = RhinoAndroidHelper.prepareContext();
@@ -73,17 +73,14 @@ public class KakaotalkListener extends NotificationListenerService {
         String sender;
         String _msg;
 
-        if (msg instanceof String) {
-            sender = room;
-            _msg = (String) msg;
-        } else {
-            String html = Html.toHtml((SpannableString) msg);
-            sender = Html.fromHtml(html.split("<b>")[1].split("</b>")[0]).toString();
-            _msg = Html.fromHtml(html.split("</b>")[1].split("</p>")[0].substring(1)).toString();
-        }
+        String sender = data.getString("android.title");
+        String msg = data.getString("android.text");
+        String room = data.getString(Build.VERSION.SDK_INT > 23 ? "android.summaryText" : "android.subText");
+        boolean isGroupChat = room != null;
+        if (room == null) room = sender;
 
         try {
-            responder.call(parseContext, execScope, execScope, new Object[] { room, _msg, sender, msg instanceof SpannableString, new SessionCacheReplier(session) });
+            responder.call(parseContext, execScope, execScope, new Object[]{room, msg, sender, isGroupChat, new SessionCacheReplier(session)});
         } catch (Throwable e) {
             Log.e("parser", "?", e);
         }
